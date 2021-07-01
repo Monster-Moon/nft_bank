@@ -48,17 +48,15 @@ model.compile(optimizer=K.optimizers.RMSprop(0.0005),
 model.fit(x = [df_time, df_without_time], y = df_log_y, batch_size = 100, epochs = 50)
 #%%
 y_predict = model.predict(x = [df_time, df_without_time])
+#%%
 y_predict
 df_log_y
 
 np.exp(y_predict)
 df_train_y
 
-
 #%%
 df_test = pd.read_csv('test_df.csv')
-
-#%%
 df_test_x = df_test.drop(['item_id'], axis = 1).copy()
 df_test_x = (df_test_x - df_train_x.mean())/df_train_x.std()
 df_test_x
@@ -69,9 +67,6 @@ y_test_predict = model.predict(x = [df_test_time, df_test_without_time])
 
 y_predicted = pd.concat([df_test['item_id'], pd.DataFrame(np.exp(y_test_predict), columns = ['value'])], axis = 1)
 y_predicted.to_csv('predicted.csv')
-
-df_test_x.columns
-df_train_x.columns
 
 
 

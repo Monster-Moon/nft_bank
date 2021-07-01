@@ -162,6 +162,9 @@ test_df = lm_date_dummy_lag %>% group_by(item_id) %>%
 train_df = lm_date_dummy_lag %>% select(-time_numeric_end, -block_timestamp)
 test_df = test_df %>% select(-value, -time_numeric, -block_timestamp) %>% rename(time_numeric = time_numeric_end)
 
+unique(test_df$item_id) %>% length()
+dim(train_df)
+dim(test_df)
 
 fwrite(train_df, 'train_df.csv')
 fwrite(test_df, 'test_df.csv')
