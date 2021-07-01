@@ -8,9 +8,10 @@ from tensorflow.python.eager.function import defun_with_attributes
 tf.__version__
 
 #%%
-df = pd.read_csv('df.csv')
+df = pd.read_csv('train_df.csv')
 df.head()
 df.shape
+
 
 #%%
 df_train_x = df.drop(['value', 'item_id'], axis = 1).copy()
@@ -48,9 +49,11 @@ model.fit(x = [df_time, df_without_time], y = df_log_y, batch_size = 100, epochs
 #%%
 y_predict = model.predict(x = [df_time, df_without_time])
 y_predict
-np.exp(y_predict)
+df_log_y
 
-df_time.shape
+np.exp(y_predict)
+df_train_y
+
 
 #%%
 df_test = pd.read_csv('test_df.csv')
@@ -58,6 +61,7 @@ df_test = pd.read_csv('test_df.csv')
 #%%
 df_test_x = df_test.drop(['item_id'], axis = 1).copy()
 df_test_x = (df_test_x - df_train_x.mean())/df_train_x.std()
+df_test_x
 
 df_test_time = df_test_x['time_numeric'].copy()
 df_test_without_time = df_test_x.drop(['time_numeric'], axis = 1).copy()
@@ -66,6 +70,8 @@ y_test_predict = model.predict(x = [df_test_time, df_test_without_time])
 y_predicted = pd.concat([df_test['item_id'], pd.DataFrame(np.exp(y_test_predict), columns = ['value'])], axis = 1)
 y_predicted.to_csv('predicted.csv')
 
+df_test_x.columns
+df_train_x.columns
 
 
 

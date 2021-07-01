@@ -10,7 +10,7 @@ if(!require(jsonlite)) install.packages('jsonlite'); require(jsonlite)
 if(!require(dplyr)) install.packages('dplyr'); require(dplyr)
 if(!require(stringr)) install.packages('stringr'); require(stringr)
 if(!require(fastDummies)) install.packages('fastDummies'); require(fastDummies)
-
+if(!require(data.table)) install.packages('data.table'); require(data.table)
 
 erc20 = stream_in(file('erc20_exchange_rates.jsonl'))
 axie_financial_events = stream_in(file('axie_financial_events_20210115_v2.jsonl'))
@@ -109,65 +109,62 @@ lm_df = cbind(char_df, numeric_df, logical_df)
 
 # save(value_df, file = 'value_df.Rdata')
 # save(lm_df, file = 'lm_df.Rdata')
-load('lm_df.Rdata')
+# load('lm_df.Rdata')
+
+lag_1 = function(x)
+{
+  tmp_x = dplyr::lag(x)
+  tmp_x[1] = x[1]
+  return(tmp_x)
+}
 
 lm_date_df = lm_df %>%
-  mutate(item_id = str_extract(item_id, '(?<=_)[0-9]{1,}'),
-         block_timestamp = as.Date(block_timestamp)) %>%
-  group_by(item_id) %>% arrange(block_timestamp, .by_group = T) %>%
-  mutate(time_numeric = as.numeric(block_timestamp - min(block_timestamp)),
-         time_numeric_end = as.numeric(as.Date(Sys.time()) - block_timestamp),
-         value_lag = lag(value))
-
-lm_date_df$value_lag[is.na(lm_date_df$value_lag)] = 0
-
-tmp = lm_date_df %>%
-  select(item_id, value, value_lag, class, 
-         ends_with('_class'),
+  select(item_id, block_timestamp, value, class,
          exp, breedCount, skill, morale, speed, hp, 
-         ends_with(c('attack', 'defense', 'accuracy')),
-         # ends_with(c('total_points', 'attack', 'defense', 'accuracy')),
-         pureness, breedable, time_numeric, time_numeric_end)
+         ends_with(c('_class', 'attack', 'defense', 'accuracy')),
+         pureness, breedable)
 
-tmp_complete = tmp[complete.cases(tmp), ]
+lm_date_df = lm_date_df[complete.cases(lm_date_df), ]
 
-tmp_d = dummy_cols(tmp_complete, 
-                   select_columns = paste0(c('', 'mouth_', 'horn_', 'back_', 'tail_', 'eyes_', 'ears_'), 'class'),
-                   remove_selected_columns = T)
-tmp_d %>% filter(item_id == 1000) %>% select(time_numeric_end, value, value_lag)
+lm_date_dummy = dummy_cols(lm_date_df, 
+                           select_columns = paste0(c('', 'mouth_', 'horn_', 'back_', 'tail_', 'eyes_', 'ears_'), 'class'),
+                           remove_selected_columns = T)
+lm_date_dummy_tmp = lm_date_dummy %>% group_by(item_id, block_timestamp) %>% 
+  summarise_all(mean)
 
-test_d = tmp_d %>% group_by(item_id) %>%
+lm_date_dummy_lag = lm_date_dummy_tmp %>% 
+  mutate(block_timestamp = as.Date(block_timestamp)) %>%
+  group_by(item_id) %>% arrange(block_timestamp, .by_group = T) %>%
+  mutate(time_numeric = as.numeric(block_timestamp - lag_1(block_timestamp)),
+         time_numeric_end = as.numeric(as.Date(Sys.time()) - block_timestamp),
+         value_lag = lag_1(value))
+
+lm_date_dummy_lag %>% select(item_id, value, value_lag, block_timestamp, time_numeric)
+
+# tmp = lm_date_df %>%
+#   select(item_id, value, value_lag, time_diff, class, 
+#          ends_with('_class'),
+#          exp, breedCount, skill, morale, speed, hp, 
+#          ends_with(c('attack', 'defense', 'accuracy')),
+#          pureness, breedable, time_numeric, time_numeric_end)
+# lm_date_df %>% select(item_id, value, value_lag, block_timestamp) %>% head(100)
+# tmp_complete = tmp[complete.cases(tmp), ]
+# tmp_d = dummy_cols(tmp_complete, 
+#                    select_columns = paste0(c('', 'mouth_', 'horn_', 'back_', 'tail_', 'eyes_', 'ears_'), 'class'),
+#                    remove_selected_columns = T)
+# tmp_d %>% filter(item_id == 1000) %>% select(time_numeric_end, value, value_lag)
+
+test_df = lm_date_dummy_lag %>% group_by(item_id) %>%
   arrange(time_numeric_end, .by_group = T) %>%
   dplyr::slice(1) %>% 
   ungroup()
 
-tmp_d = tmp_d %>% select(-time_numeric_end)
-test_d = test_d %>% select(-time_numeric) %>% rename(time_numeric = time_numeric_end)
+train_df = lm_date_dummy_lag %>% select(-time_numeric_end, -block_timestamp)
+test_df = test_df %>% select(-value, -time_numeric, -block_timestamp) %>% rename(time_numeric = time_numeric_end)
 
-fwrite(tmp_d, 'df.csv')
-fwrite(test_d, 'test_df.csv')
 
-# head(tmp_d)
-# head(test_d)
-# 
-# if(!require(xgboost)) install.packages('xgboost'); require(xgboost)
-# 
-# train_x = tmp_d %>% select(-item_id, -value) %>% as.matrix()
-# train_y = tmp_d %>% select(value) %>% as.matrix()
-# 
-# test_x = test_d %>% select(-item_id, -value) %>% as.matrix()
-# test_y = test_d %>% select(value) %>% as.matrix()
-# 
-# xgb_train = xgb.DMatrix(data = train_x, label = train_y)
-# xgb_test = xgb.DMatrix(data = test_x, label = test_y)
-# 
-# xgbc = xgboost(data = xgb_train, max.depth = 5, nrounds = 50)
-# pred_y = predict(xgbc, xgb_test)
-# 
-# mean(abs((test_y - pred_y) / test_y))
-# 
-# head(pred_y)
-# head(test_y)
-# 
-# cor(train_x[1:100, ])
-# 
+fwrite(train_df, 'train_df.csv')
+fwrite(test_df, 'test_df.csv')
+
+
+
