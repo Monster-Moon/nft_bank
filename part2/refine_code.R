@@ -17,6 +17,7 @@ axie_financial_events = stream_in(file('axie_financial_events_20210115_v2.jsonl'
 axie_item = stream_in(file('axie_item_metadata_v2.jsonl'))
 
 # save.image('R_.Rdata')
+# load('R_.Rdata')
 
 table(axie_financial_events$event_type)
 table(axie_financial_events$item_receive_transfer_type)
@@ -31,6 +32,7 @@ financial_inx = abs(rowSums(financial_value_df)) >= 1e-8 & !is.na(rowSums(financ
 
 financial_refined_df = financial_refined[financial_inx, ] ## 507211
 financial_value_df = financial_value_df[financial_inx, ]
+
 
 item_fun = function(i, df_, value_df_)
 {
@@ -49,6 +51,7 @@ item_fun = function(i, df_, value_df_)
 
 item_list = lapply(1:nrow(financial_refined_df), item_fun, df_ = financial_refined_df, value_df_ = financial_value_df)
 item_df = do.call('rbind', item_list) %>% as.data.frame()
+
 
 financial_refined_tmp = cbind(i = 1:nrow(financial_refined_df), financial_refined_df) %>%
   select(i, block_timestamp, event_type)
